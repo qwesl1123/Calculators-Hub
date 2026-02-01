@@ -1,3 +1,5 @@
+from datetime import datetime
+from calendar import monthrange
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
@@ -27,6 +29,48 @@ def time_convert(value, unit):
     total_seconds = value * SECONDS[unit]
     return {u: total_seconds / SECONDS[u] for u in TIME_ORDER}
 
+# ---------------- Month calculator ----------------
+
+def add_months(start, months):
+    total_months = (start.year * 12) + (start.month - 1) + months
+    year, month_index = divmod(total_months, 12)
+    month = month_index + 1
+    day = min(start.day, monthrange(year, month)[1])
+    return start.replace(year=year, month=month, day=day)
+
+
+def calendar_diff(start, end):
+    if end < start:
+        start, end = end, start
+
+    total_months = (end.year - start.year) * 12 + (end.month - start.month)
+    anchor = add_months(start, total_months)
+    if anchor > end:
+        total_months -= 1
+        anchor = add_months(start, total_months)
+
+    years, months = divmod(total_months, 12)
+    remainder = end - anchor
+    days = remainder.days
+    hours, remainder_seconds = divmod(remainder.seconds, 3600)
+    minutes, seconds = divmod(remainder_seconds, 60)
+
+    return {
+        "Year": years,
+        "Month": months,
+        "Day": days,
+        "Hour": hours,
+        "Min": minutes,
+        "Sec": seconds,
+    }
+
+
+def elapsed_time_convert(start, end):
+    total_seconds = abs((end - start).total_seconds())
+    month_order = ["year", "month", "day", "hour", "minute", "second"]
+    return {u.capitalize(): total_seconds / SECONDS[u] for u in month_order}
+
+
 
 # ---------------- Resolution calculator ----------------
 
@@ -54,6 +98,32 @@ def drive_price_calc(drives):
 
     cheapest = min(results, key=lambda x: x[2])
     return results, cheapest
+
+# ---------------- Hard drive usable space calculator ----------------
+
+DECIMAL_UNITS = {
+    "GB": 10**9,
+    "TB": 10**12,
+}
+
+def usable_space_calc(capacity_value, capacity_unit, overhead_percent, reserved_gb):
+    total_bytes = capacity_value * DECIMAL_UNITS[capacity_unit]
+    formatted_bytes = total_bytes * (1 - overhead_percent / 100)
+    reserved_bytes = reserved_gb * DECIMAL_UNITS["GB"]
+    usable_bytes = max(formatted_bytes - reserved_bytes, 0)
+
+    return {
+        "total_bytes": total_bytes,
+        "formatted_bytes": formatted_bytes,
+        "reserved_bytes": reserved_bytes,
+        "usable_bytes": usable_bytes,
+        "usable_decimal_gb": usable_bytes / DECIMAL_UNITS["GB"],
+        "usable_decimal_tb": usable_bytes / DECIMAL_UNITS["TB"],
+        "usable_binary_gib": usable_bytes / (2**30),
+        "usable_binary_tib": usable_bytes / (2**40),
+        "binary_capacity_gib": total_bytes / (2**30),
+        "binary_capacity_tib": total_bytes / (2**40),
+    }
 
 # ---------------- Darkmoon flavor text ----------------
 
@@ -336,6 +406,30 @@ def time_calc():
     return render_template("time.html", results=results)
 
 
+@app.route("/month", methods=["GET", "POST"])
+def month_calc():
+    results = None
+    range_text = None
+    if request.method == "POST":
+        start_date = request.form["start_date"]
+        end_date = request.form["end_date"]
+        start_time = request.form.get("start_time") or "00:00:00"
+        end_time = request.form.get("end_time") or "00:00:00"
+        show_start_time = bool(request.form.get("start_time"))
+        show_end_time = bool(request.form.get("end_time"))
+        if len(start_time) == 5:
+            start_time = f"{start_time}:00"
+        if len(end_time) == 5:
+            end_time = f"{end_time}:00"
+        start = datetime.fromisoformat(f"{start_date}T{start_time}")
+        end = datetime.fromisoformat(f"{end_date}T{end_time}")
+        results = elapsed_time_convert(start, end)
+        start_format = "%b %d, %Y %H:%M:%S" if show_start_time else "%b %d, %Y"
+        end_format = "%b %d, %Y %H:%M:%S" if show_end_time else "%b %d, %Y"
+        range_text = f"{start.strftime(start_format)} - {end.strftime(end_format)}"
+    return render_template("month.html", results=results, range_text=range_text)
+
+
 @app.route("/resolution", methods=["GET", "POST"])
 def resolution_calc():
     results = None
@@ -377,6 +471,32 @@ def drives_calc():
         cheapest=cheapest,
         error=error
     )
+
+@app.route("/usable-space", methods=["GET", "POST"])
+def usable_space():
+    result = None
+    error = None
+
+    if request.method == "POST":
+        try:
+            capacity_value = float(request.form["capacity_value"])
+            capacity_unit = request.form["capacity_unit"]
+            overhead_percent = float(request.form["overhead_percent"])
+            reserved_gb = float(request.form["reserved_gb"])
+
+            if capacity_value <= 0 or overhead_percent < 0 or reserved_gb < 0:
+                raise ValueError
+
+            result = usable_space_calc(
+                capacity_value,
+                capacity_unit,
+                overhead_percent,
+                reserved_gb,
+            )
+        except Exception:
+            error = "Enter valid positive numbers for capacity, overhead, and reserved space."
+
+    return render_template("usable_space.html", result=result, error=error)
 
 
 @app.route("/darkmoon", methods=["GET", "POST"])
