@@ -1,0 +1,28 @@
+<a href="/" style="display:inline-block; margin-bottom:15px;">
+  ← Return to Main Hub
+</a>
+
+<h2>Time Calculator</h2>
+
+<form method="post">
+  <input name="value" type="number" step="any" required>
+  <select name="unit">
+    <option>second</option>
+    <option>minute</option>
+    <option>hour</option>
+    <option>day</option>
+    <option>month</option>
+    <option>year</option>
+    <option>decade</option>
+  </select>
+  <button type="submit">Calculate</button>
+</form>
+
+{% if results %}
+<pre>
+{% for k, v in results.items() %}
+{{ k.ljust(7) }} : {{ "%.6f"|format(v) }}
+{% endfor %}
+</pre>
+{% endif %}
+

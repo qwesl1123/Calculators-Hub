@@ -1,0 +1,32 @@
+<a href="/" style="display:inline-block; margin-bottom:15px;">
+  ← Return to Main Hub
+</a>
+
+<h2>Hard Drive Price Calculator</h2>
+
+<form method="post">
+  <p>Enter one drive per line in <strong>TB:PRICE</strong> format</p>
+  <textarea name="drives" rows="6" cols="40"
+    placeholder="8:160
+12:210
+16:320"></textarea>
+  <br><br>
+  <button type="submit">Calculate</button>
+</form>
+
+{% if error %}
+<p style="color:red;"><strong>{{ error }}</strong></p>
+{% endif %}
+
+{% if results %}
+<pre>
+{% for tb, price, dptb in results %}
+{{ "%5g"|format(tb) }} TB @ ${{ "%7.2f"|format(price) }}
+  = ${{ "%6.2f"|format(dptb) }}/TB
+{% endfor %}
+
+Lowest cost per TB:
+{{ cheapest[0] }} TB drive (${{ "%.2f"|format(cheapest[2]) }}/TB)
+</pre>
+{% endif %}
+

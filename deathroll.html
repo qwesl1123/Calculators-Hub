@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Deathroll Addiction Helper</title>
+
+<style>
+  body {
+    background: #0b0b0b;
+    color: #ddd;
+    font-family: "Friz Quadrata", "Trebuchet MS", serif;
+    display: flex;
+    justify-content: center;
+    padding-top: 30px;
+  }
+
+  .container { width: 700px; }
+
+  h1 {
+    text-align: center;
+    color: #ff8000;
+    margin-bottom: 10px;
+  }
+
+  .chatbox {
+    background: #111;
+    border: 2px solid #3a3a3a;
+    height: 350px;
+    overflow-y: auto;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+
+  .line { margin-bottom: 6px; }
+  .you { color: #1eff00; }
+  .npc { color: #ff5555; }
+  .system { color: #ffd100; }
+  .win { color: #1eff00; font-size: 18px; }
+  .lose { color: #ff5555; font-size: 18px; }
+
+  input {
+    width: 100%;
+    padding: 8px;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    color: #fff;
+  }
+
+  .controls {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    align-items: center;
+  }
+
+  button {
+    background: #222;
+    color: #fff;
+    border: 1px solid #555;
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+
+  button:hover { background: #333; }
+
+  .gold {
+    margin-left: auto;
+    color: #ffd100;
+    font-weight: bold;
+  }
+
+  .cooldown {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .hub {
+    text-align: center;
+    margin-top: 10px;
+  }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>Deathroll Addiction Helper</h1>
+
+  <div class="chatbox" id="chat"></div>
+
+  <input id="command" placeholder="Type /roll 1000" autocomplete="off">
+
+  <div class="controls">
+    <button onclick="setBet(10)">Bet 10</button>
+    <button onclick="setBet(50)">Bet 50</button>
+    <button onclick="setBet(500)">Bet 500</button>
+    <button onclick="customBet()">Custom</button>
+    <button id="begBtn" onclick="begForGold()">Beg for Gold</button>
+    <div class="gold" id="goldDisplay"></div>
+  </div>
+
+  <div class="hub">
+    <button onclick="window.location.href='/'">Return to Main Hub</button>
+  </div>
+</div>
+
+<script>
+/* ---------------- STATE ---------------- */
+
+let gold = parseInt(localStorage.getItem("gold")) || 5000;
+let currentBet = 0;
+let gameActive = false;
+let maxRoll = 1000;
+let begCooldown = false;
+
+/* ---------------- NPCs ---------------- */
+
+const NPCS = [
+  {
+    name: "Mrrrglrglr",
+    taunt: [
+      "Another addict wanders in.",
+      "Gold doesn’t spend itself.",
+      "Roll already."
+    ],
+    loss: [
+      "HA! Pay up.",
+      "That gold was never yours.",
+      "Addiction claims another."
+    ]
+  },
+  {
+    name: "Midgitsu",
+    taunt: [
+      "I can smell fear through the dice.",
+      "You look desperate.",
+      "Try not to embarrass yourself."
+    ],
+    loss: [
+      "Predictable.",
+      "I expected better. Barely.",
+      "Lost to a gnome, nice..."
+    ]
+  },
+  {
+    name: "Bearlinwall",
+    taunt: [
+      "Bets on the table, now.",
+      "Come on man let's roll already.",
+      "Yo mama so fat.. She's fatter than my bear form!"
+    ],
+    loss: [
+      "Crushed.",
+      "Even my bear form rolls better than you...",
+      "Another lesson learned."
+    ]
+  },
+  {
+    name: "Diddler",
+    taunt: [
+      "Ooo, shiny shiny in your pocket!",
+      "Let’s make this hurt.",
+      "Surely you're not afread of numbers?"
+    ],
+    loss: [
+      "Hehehe.",
+      "Mine now.",
+      "That was fun."
+    ]
+  }
+];
+
+const npc = NPCS[Math.floor(Math.random() * NPCS.length)];
+
+/* ---------------- UI ---------------- */
+
+const chat = document.getElementById("chat");
+const input = document.getElementById("command");
+const goldDisplay = document.getElementById("goldDisplay");
+const begBtn = document.getElementById("begBtn");
+
+function addLine(text, cls = "system") {
+  const div = document.createElement("div");
+  div.className = `line ${cls}`;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function updateGoldDisplay() {
+  goldDisplay.textContent = `🪙 ${gold.toLocaleString()}`;
+}
+
+function saveGold() {
+  localStorage.setItem("gold", gold);
+}
+
+/* ---------------- BETTING (FIXED) ---------------- */
+
+function setBet(amount) {
+  if (gold <= 0) return;
+  currentBet = Math.min(amount, gold);
+  addLine(`You set a bet of ${currentBet} gold.`, "system");
+}
+
+function customBet() {
+  if (gold <= 0) return;
+  const amt = parseInt(prompt("Enter bet amount:"));
+  if (!isNaN(amt) && amt > 0) {
+    currentBet = Math.min(amt, gold);
+    addLine(`You set a bet of ${currentBet} gold.`, "system");
+  }
+}
+
+/* ---------------- GAME ---------------- */
+
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    handleCommand(input.value.trim());
+    input.value = "";
+  }
+});
+
+function handleCommand(cmd) {
+  if (!cmd.startsWith("/roll")) return;
+
+  const rollMax = parseInt(cmd.split(" ")[1]);
+  if (isNaN(rollMax)) return;
+
+  if (!gameActive && rollMax !== 1000) {
+    addLine(`${npc.name}: Are you stupid? /roll 1000!`, "npc");
+    return;
+  }
+
+  if (!gameActive && currentBet === 0) {
+    addLine(`${npc.name}: No bet? No roll. Put some gold on the table.`, "npc");
+    return;
+  }
+
+
+  const roll = Math.floor(Math.random() * rollMax) + 1;
+  addLine(`You rolled ${roll} (1–${rollMax})`, "you");
+
+  if (!gameActive) {
+    gameActive = true;
+    maxRoll = roll;
+    npcTurn();
+    return;
+  }
+
+  if (rollMax !== maxRoll) {
+    addLine(`${npc.name}: Do you even know how to play?`, "npc");
+    return;
+  }
+
+  maxRoll = roll;
+
+  if (roll === 1) {
+    addLine("You lost the deathroll.", "lose");
+    addLine(`${npc.name}: ${npc.loss[Math.floor(Math.random()*npc.loss.length)]}`, "npc");
+
+    if (currentBet > 0) {
+      gold = Math.max(0, gold - currentBet);
+      saveGold();
+      updateGoldDisplay();
+    }
+
+    resetGame();
+    return;
+  }
+
+  npcTurn();
+}
+
+function npcTurn() {
+  setTimeout(() => {
+    const roll = Math.floor(Math.random() * maxRoll) + 1;
+    addLine(`${npc.name} rolls ${roll} (1–${maxRoll})`, "npc");
+
+    if (roll === 1) {
+      addLine("You won the deathroll!", "win");
+      if (currentBet > 0) {
+        gold += currentBet;
+        saveGold();
+        updateGoldDisplay();
+      }
+      resetGame();
+      return;
+    }
+
+    maxRoll = roll;
+  }, 1200);
+}
+
+function resetGame() {
+  gameActive = false;
+  maxRoll = 1000;
+  currentBet = 0;
+}
+
+/* ---------------- BEGGING ---------------- */
+
+function begForGold() {
+  if (begCooldown) return;
+
+  begCooldown = true;
+  begBtn.classList.add("cooldown");
+
+  const roll = Math.random() * 100;
+  let gained = roll < 65 ? 10 : roll < 85 ? 100 : roll < 95 ? 300 : 1000;
+
+  gold += gained;
+  saveGold();
+  updateGoldDisplay();
+  addLine(`You beg pitifully and receive ${gained} gold.`, "system");
+
+  setTimeout(() => {
+    begCooldown = false;
+    begBtn.classList.remove("cooldown");
+  }, 10000);
+}
+
+/* ---------------- INIT ---------------- */
+
+updateGoldDisplay();
+npc.taunt.forEach((t, i) => {
+  setTimeout(() => addLine(`${npc.name}: ${t}`, "npc"), i * 10000);
+});
+</script>
+</body>
+</html>

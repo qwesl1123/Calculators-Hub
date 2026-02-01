@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Darkmoon Fortune Calculator</title>
+  <style>
+    /* Base font for WoW-style feel */
+    body {
+      font-family: "Friz Quadrata", "Georgia", "Times New Roman", serif;
+      background-color: #1a1a1a; /* optional dark background for contrast */
+      color: #ffffff;
+    }
+
+    /* Difficulty colors with subtle shadow for tooltip effect */
+    .difficulty-trivial {
+      color: #ffffff;
+      text-shadow: 1px 1px 2px black;
+    }
+    .difficulty-normal {
+      color: #1eff00; /* WoW green */
+      text-shadow: 1px 1px 2px black;
+    }
+    .difficulty-epic {
+      color: #a335ee; /* WoW epic purple */
+      text-shadow: 1px 1px 2px black;
+    }
+    .difficulty-legendary {
+      color: #ff8000; /* WoW orange */
+      text-shadow: 1px 1px 2px black;
+    }
+
+    /* Deck name always epic purple with shadow */
+    .deck-name {
+      color: #a335ee;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px black;
+    }
+
+    /* Luck / chance tiers with WoW style */
+    .tier-white {
+      color: #ffffff;
+      text-shadow: 1px 1px 2px black;
+      font-weight: bold;
+    }
+    .tier-green {
+      color: #1eff00;
+      text-shadow: 1px 1px 2px black;
+      font-weight: bold;
+    }
+    .tier-blue {
+      color: #0070dd;
+      text-shadow: 1px 1px 2px black;
+      font-weight: bold;
+    }
+    .tier-purple {
+      color: #a335ee;
+      text-shadow: 1px 1px 2px black;
+      font-weight: bold;
+    }
+    .tier-orange {
+      color: #ff8000;
+      text-shadow: 1px 1px 2px black;
+      font-weight: bold;
+    }
+
+    /* Comment text – epic WoW style with glow */
+    .comment {
+      color: #ff8000;
+      font-weight: bold;
+      text-shadow:
+        1px 1px 2px black,
+        0 0 6px #ff8000;
+      font-size: 16px;
+      font-style: normal; /* upright like WoW tooltip */
+    }
+
+    /* Optional: make form elements match WoW style */
+    input, select, button {
+      font-family: "Friz Quadrata", "Georgia", "Times New Roman", serif;
+      font-weight: bold;
+      color: #ffffff;
+      background-color: #333333;
+      border: 1px solid #666666;
+      padding: 4px 8px;
+      margin: 2px 0;
+    }
+    button:hover {
+      background-color: #444444;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<a href="/">← Return to Main Hub</a>
+
+<h2>Darkmoon Fortune Calculator</h2>
+
+<form method="post">
+
+  <label>Cards Drawn:</label><br>
+  <input type="number" name="cards" min="1" max="8" required><br><br>
+
+  <label>Darkmoon Deck:</label><br>
+  <select name="deck">
+    <option>Judgment</option>
+    <option>Commendation</option>
+    <option>Hopes</option>
+    <option>Furies</option>
+    <option>Vengeance</option>
+    <option>War</option>
+    <option>Nightmares</option>
+    <option>Tragedy</option>
+    <option>Resurrection</option>
+    <option>Deception</option>
+    <option>Madness</option>
+    <option>Fables</option>
+    <option>Dominion</option>
+  </select><br><br>
+
+  <label>Difficulty:</label><br>
+  <select name="difficulty">
+    <option value="trivial">Trivial</option>
+    <option value="normal">Normal</option>
+    <option value="epic">Epic</option>
+    <option value="legendary">Legendary</option>
+  </select><br><br>
+
+  <button type="submit">Consult the Cards</button>
+
+</form>
+
+{% if result %}
+<hr>
+<h3>Result</h3>
+
+<p><strong>Deck:</strong> 
+  <span class="deck-name">{{ result.deck }}</span>
+</p>
+
+<p><strong>Difficulty:</strong> 
+  <span class="difficulty-{{ result.difficulty | lower }}">{{ result.difficulty }}</span>
+</p>
+
+{% set luck_class = "" %}
+{% if result.score <= 0 %}
+  {% set luck_class = "tier-white" %}
+{% elif result.score < 10 %}
+  {% set luck_class = "tier-green" %}
+{% elif result.score < 25 %}
+  {% set luck_class = "tier-blue" %}
+{% elif result.score < 50 %}
+  {% set luck_class = "tier-purple" %}
+{% else %}
+  {% set luck_class = "tier-orange" %}
+{% endif %}
+
+<p><strong>Luck Score:</strong> 
+  <span class="{{ luck_class }}">{{ result.score }}</span>
+</p>
+
+{% set chance_class = "" %}
+{% if result.chance <= 10 %}
+  {% set chance_class = "tier-white" %}
+{% elif result.chance < 25 %}
+  {% set chance_class = "tier-green" %}
+{% elif result.chance < 50 %}
+  {% set chance_class = "tier-blue" %}
+{% elif result.chance < 75 %}
+  {% set chance_class = "tier-purple" %}
+{% else %}
+  {% set chance_class = "tier-orange" %}
+{% endif %}
+
+<p><strong>Chance of Success:</strong> 
+  <span class="{{ chance_class }}">{{ result.chance }}%</span>
+</p>
+
+<p><strong>Cards Drawn:</strong> {{ result.cards | join(", ") }}</p>
+
+<p class="comment">{{ result.comment }}</p>
+
+{% endif %}
+
+</body>
+</html>
