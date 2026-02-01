@@ -1,0 +1,42 @@
+<a href="/" style="display:inline-block; margin-bottom:15px;">
+  ← Return to Main Hub
+</a>
+
+<h2>Month Calculator</h2>
+
+<p>
+  Compare two calendar dates by selecting a start and end date. Optional times
+  refine the range; if omitted, midnight is assumed. Results are shown as
+  elapsed duration across standard units.
+</p>
+
+<form method="post">
+  <label>
+    Start date
+    <input name="start_date" type="date" required>
+  </label>
+  <label>
+    Start time (optional)
+    <input name="start_time" type="time" step="1">
+  </label>
+  <br>
+  <label>
+    End date
+    <input name="end_date" type="date" required>
+  </label>
+  <label>
+    End time (optional)
+    <input name="end_time" type="time" step="1">
+  </label>
+  <br>
+  <button type="submit">Calculate</button>
+</form>
+
+{% if results %}
+<p><strong>Range:</strong> {{ range_text }}</p>
+<pre>
+{% for k, v in results.items() %}
+{{ k.ljust(6) }} : {{ "%.6f"|format(v) }}
+{% endfor %}
+</pre>
+{% endif %}
