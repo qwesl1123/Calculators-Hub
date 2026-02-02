@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Blackjack Addiction Helper</title>
+<style>
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    background: radial-gradient(circle at top, #1a1a1a 0%, #060606 60%);
+    color: #e6e6e6;
+    font-family: "Lucida Console", "Courier New", monospace;
+    display: flex;
+    justify-content: center;
+    padding: 28px 12px 40px;
+  }
+
+  .terminal {
+    width: min(860px, 96vw);
+    background: #0b0b0b;
+    border: 2px solid #2c2c2c;
+    box-shadow: 0 0 18px rgba(0, 0, 0, 0.6);
+    padding: 18px;
+  }
+
+  h1 {
+    text-align: center;
+    color: #37ff8b;
+    text-transform: uppercase;
+    font-size: 22px;
+    margin: 0 0 12px;
+    letter-spacing: 0.18em;
+    text-shadow: 0 0 8px rgba(55, 255, 139, 0.5);
+  }
+
+  .status {
+    border: 1px solid #2b2b2b;
+    background: #111;
+    padding: 10px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #d6d6d6;
+  }
+
+  .status strong {
+    color: #ffd166;
+  }
+
+  .chatbox {
+    background: #050505;
+    border: 1px solid #2a2a2a;
+    height: 280px;
+    overflow-y: auto;
+    padding: 10px;
+    margin-bottom: 10px;
+    font-size: 14px;
+  }
+
+  .line { margin-bottom: 6px; }
+  .you { color: #37ff8b; }
+  .dealer { color: #ff6b6b; }
+  .system { color: #ffd166; }
+  .win { color: #37ff8b; font-weight: bold; }
+  .lose { color: #ff6b6b; font-weight: bold; }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  button {
+    background: #1c1c1c;
+    color: #e6e6e6;
+    border: 1px solid #444;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+  }
+
+  button:hover { background: #2a2a2a; }
+
+  input {
+    width: 100%;
+    padding: 8px;
+    background: #0d0d0d;
+    border: 1px solid #333;
+    color: #f5f5f5;
+    font-family: inherit;
+  }
+
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    font-size: 13px;
+  }
+
+  .hub button {
+    text-transform: none;
+  }
+</style>
+</head>
+<body>
+  <div class="terminal">
+    <h1>Blackjack Addiction Helper</h1>
+
+    <div class="status" id="status"></div>
+
+    <div class="chatbox" id="chat"></div>
+
+    <input id="command" placeholder="Type /deal, /hit, /stand, /help" autocomplete="off">
+
+    <div class="controls">
+      <button onclick="setBet(5)">Bet 5</button>
+      <button onclick="setBet(20)">Bet 20</button>
+      <button onclick="setBet(100)">Bet 100</button>
+      <button onclick="customBet()">Custom Bet</button>
+      <button onclick="startRound()">Deal</button>
+      <button onclick="hitPlayer()">Hit</button>
+      <button onclick="standPlayer()">Stand</button>
+      <button onclick="begForGold()">Beg for Diamonds</button>
+    </div>
+
+    <div class="footer">
+      <div id="goldDisplay"></div>
+      <div class="hub">
+        <button onclick="window.location.href='/'">Return to Main Hub</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const chat = document.getElementById("chat");
+  const input = document.getElementById("command");
+  const status = document.getElementById("status");
+  const goldDisplay = document.getElementById("goldDisplay");
+
+  let diamonds = parseInt(localStorage.getItem("diamonds")) || 500;
+  let currentBet = 0;
+  let deck = [];
+  let playerHand = [];
+  let dealerHand = [];
+  let inRound = false;
+  let dealerHidden = true;
+
+  const BEG_KEY = "blackjack_last_beg";
+
+  function addLine(text, cls = "system") {
+    const div = document.createElement("div");
+    div.className = `line ${cls}`;
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function updateGold() {
+    goldDisplay.textContent = `💎 ${diamonds.toLocaleString()} Diamonds`;
+    localStorage.setItem("diamonds", diamonds);
+  }
+
+  function setBet(amount) {
+    if (diamonds <= 0) return;
+    currentBet = Math.min(amount, diamonds);
+    addLine(`Bet locked at ${currentBet} Diamonds.`, "system");
+    updateStatus();
+  }
+
+  function customBet() {
+    const amt = parseInt(prompt("Enter bet amount:"), 10);
+    if (!amt || amt <= 0) return;
+    setBet(amt);
+  }
+
+  function begForGold() {
+    const now = Date.now();
+    const last = parseInt(localStorage.getItem(BEG_KEY) || "0", 10);
+    if (now - last < 10000) {
+      addLine("Beg is on cooldown.", "system");
+      return;
+    }
+    localStorage.setItem(BEG_KEY, now);
+
+    const roll = Math.random() * 100;
+    const gained = roll < 75 ? 5 : roll < 95 ? 20 : 100;
+    diamonds += gained;
+    updateGold();
+    addLine(`You beg the pit boss and receive ${gained} Diamonds.`, "system");
+  }
+
+  function createDeck() {
+    const suits = ["♠", "♥", "♦", "♣"];
+    const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+    const fresh = [];
+    for (const suit of suits) {
+      for (const rank of ranks) {
+        const value = rank === "A" ? 11 : ["J", "Q", "K"].includes(rank) ? 10 : parseInt(rank, 10);
+        fresh.push({ rank, suit, value, label: `${rank}${suit}` });
+      }
+    }
+    return fresh;
+  }
+
+  function shuffle(cards) {
+    for (let i = cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
+  }
+
+  function drawCard() {
+    if (deck.length === 0) {
+      deck = createDeck();
+      shuffle(deck);
+    }
+    return deck.pop();
+  }
+
+  function handValue(hand) {
+    let total = hand.reduce((sum, card) => sum + card.value, 0);
+    let aces = hand.filter((card) => card.rank === "A").length;
+    while (total > 21 && aces > 0) {
+      total -= 10;
+      aces -= 1;
+    }
+    return total;
+  }
+
+  function handLabels(hand) {
+    return hand.map((card) => card.label).join(" ");
+  }
+
+  function updateStatus() {
+    const dealerVisible = dealerHidden
+      ? `${dealerHand[0]?.label || "??"} ??`
+      : handLabels(dealerHand);
+    const dealerValue = dealerHidden ? "??" : handValue(dealerHand);
+    status.innerHTML = `
+      <div><strong>Bet:</strong> ${currentBet || 0} Diamonds</div>
+      <div><strong>Player:</strong> ${handLabels(playerHand) || "--"} (${playerHand.length ? handValue(playerHand) : "--"})</div>
+      <div><strong>Dealer:</strong> ${dealerVisible} (${dealerValue})</div>
+    `;
+  }
+
+  function startRound() {
+    if (inRound) {
+      addLine("Round already in progress.", "system");
+      return;
+    }
+    if (currentBet <= 0) {
+      addLine("Set a bet before dealing.", "system");
+      return;
+    }
+    if (diamonds < currentBet) {
+      addLine("Not enough Diamonds for that bet.", "system");
+      return;
+    }
+
+    deck = createDeck();
+    shuffle(deck);
+    playerHand = [drawCard(), drawCard()];
+    dealerHand = [drawCard(), drawCard()];
+    inRound = true;
+    dealerHidden = true;
+
+    addLine("Dealer shuffles the shoe...", "dealer");
+    addLine(`You draw ${handLabels(playerHand)}.`, "you");
+    addLine(`Dealer shows ${dealerHand[0].label}.`, "dealer");
+
+    updateStatus();
+  }
+
+  function hitPlayer() {
+    if (!inRound) {
+      addLine("No active round. Type /deal.", "system");
+      return;
+    }
+    playerHand.push(drawCard());
+    addLine(`You hit and draw ${playerHand[playerHand.length - 1].label}.`, "you");
+    const total = handValue(playerHand);
+    if (total > 21) {
+      finishRound("bust");
+    }
+    updateStatus();
+  }
+
+  function standPlayer() {
+    if (!inRound) {
+      addLine("No active round. Type /deal.", "system");
+      return;
+    }
+    dealerHidden = false;
+    addLine(`Dealer reveals ${handLabels(dealerHand)}.`, "dealer");
+    let dealerTotal = handValue(dealerHand);
+    while (dealerTotal < 17) {
+      const card = drawCard();
+      dealerHand.push(card);
+      addLine(`Dealer draws ${card.label}.`, "dealer");
+      dealerTotal = handValue(dealerHand);
+    }
+    finishRound("stand");
+  }
+
+  function finishRound(reason) {
+    dealerHidden = false;
+    const playerTotal = handValue(playerHand);
+    const dealerTotal = handValue(dealerHand);
+
+    let resultText = "";
+    if (reason === "bust") {
+      diamonds -= currentBet;
+      resultText = `Bust! You lose ${currentBet} Diamonds.`;
+      addLine(resultText, "lose");
+    } else if (dealerTotal > 21) {
+      diamonds += currentBet;
+      resultText = `Dealer busts. You win ${currentBet} Diamonds.`;
+      addLine(resultText, "win");
+    } else if (playerTotal > dealerTotal) {
+      diamonds += currentBet;
+      resultText = `You win ${currentBet} Diamonds.`;
+      addLine(resultText, "win");
+    } else if (playerTotal < dealerTotal) {
+      diamonds -= currentBet;
+      resultText = `Dealer wins. You lose ${currentBet} Diamonds.`;
+      addLine(resultText, "lose");
+    } else {
+      resultText = "Push. No Diamonds change hands.";
+      addLine(resultText, "system");
+    }
+
+    inRound = false;
+    updateGold();
+    updateStatus();
+  }
+
+  function handleCommand(cmd) {
+    switch (cmd) {
+      case "/deal":
+        startRound();
+        break;
+      case "/hit":
+        hitPlayer();
+        break;
+      case "/stand":
+        standPlayer();
+        break;
+      case "/help":
+        addLine("Commands: /deal, /hit, /stand, /help", "system");
+        break;
+      default:
+        addLine("Unknown command. Try /help.", "system");
+    }
+  }
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = "";
+    handleCommand(msg);
+  });
+
+  updateGold();
+  updateStatus();
+  addLine("Welcome to the backroom blackjack console.", "system");
+  addLine("Type /deal to start a round.", "system");
+</script>
+</body>
+</html>

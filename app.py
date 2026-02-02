@@ -632,6 +632,14 @@ def deathroll():
 def deathroll_pvp():
     return render_template("deathroll_pvp.html")
 
+@app.route("/blackjack")
+def blackjack():
+    return render_template("blackjack.html")
+
+@app.route("/blackjack-pvp")
+def blackjack_pvp():
+    return render_template("blackjack_pvp.html")
+
 @socketio.on("queue")
 def handle_queue():
     sid = request.sid
