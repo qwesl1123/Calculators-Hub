@@ -53,7 +53,7 @@
     margin-left: 8px;
   }
 
-  #chatbox {
+  .chatbox {
     height: 420px;
     overflow-y: auto;
     padding: 10px;
@@ -62,8 +62,11 @@
     font-size: 14px;
   }
 
-  .you { color: #ffffff; }
+  .line { margin-bottom: 6px; }
+
+  .you { color: #1eff00; }
   .system { color: #ffd100; }
+  .opponent { color: #ff4040; }
   .win { color: #1eff00; font-weight: bold; }
   .lose { color: #ff4040; font-weight: bold; }
 
@@ -85,22 +88,28 @@
 </head>
 
 <body>
+<div class="container">
+  <h1>Deathroll Arena</h1>
 
-<div id="topbar">
-  <div id="title">Deathroll Arena</div>
-  <div id="controls">
+  <div class="chatbox" id="chat"></div>
+
+  <input id="command" placeholder="Type /roll 1000 or chat..." autocomplete="off">
+
+  <div class="controls">
     <button onclick="queueUp()">Queue</button>
-    <button onclick="begForGold()">Beg for Gold</button>
-    <div id="gold">🪙 5000</div>
-    <button onclick="location.href='/'">Return to Hub</button>
+
+    <button onclick="setBet(10)">Bet 10</button>
+    <button onclick="setBet(50)">Bet 50</button>
+    <button onclick="setBet(500)">Bet 500</button>
+    <button onclick="customBet()">Custom</button>
+
+    <button id="begBtn" onclick="begForGold()">Beg for Gold</button>
+    <div class="gold" id="goldDisplay"></div>
   </div>
-</div>
 
-<div id="chatbox"></div>
-
-<div id="inputbar">
-  <input id="chatInput" placeholder="Type /roll 1000 or chat..." />
-  <button onclick="sendInput()">Send</button>
+  <div class="hub">
+    <button onclick="window.location.href='/'">Return to Main Hub</button>
+  </div>
 </div>
 
 <script>
@@ -110,20 +119,27 @@
 ======================= */
 
 let gold = parseInt(localStorage.getItem("gold")) || 5000;
-document.getElementById("gold").textContent = "🪙 " + gold;
+document.getElementById("goldDisplay").textContent = "🪙 " + gold;
 
 function saveGold() {
   localStorage.setItem("gold", gold);
 }
 
-function begForGold() {
-  const roll = Math.random() * 100;
-  let gained = 0;
+const BEG_KEY = "deathroll_pvp_last_beg";
 
-  if (roll < 65) gained = 10;
-  else if (roll < 85) gained = 100;
-  else if (roll < 95) gained = 300;
-  else gained = 1000;
+function begForGold() {
+  const now = Date.now();
+  const last = parseInt(localStorage.getItem(BEG_KEY) || "0", 10);
+
+  if (now - last < 10000) {
+    addLine("Beg is on cooldown.", "system");
+    return;
+  }
+
+  localStorage.setItem(BEG_KEY, now);
+
+  const roll = Math.random() * 100;
+  let gained = roll < 65 ? 10 : roll < 85 ? 100 : roll < 95 ? 300 : 1000;
 
   gold += gained;
   saveGold();
@@ -133,22 +149,38 @@ function begForGold() {
 }
 
 function updateGold() {
-  document.getElementById("gold").textContent = "🪙 " + gold;
+  document.getElementById("goldDisplay").textContent = "🪙 " + gold;
 }
 
 /* =======================
    CHAT / UI (unchanged)
 ======================= */
 
-const chatbox = document.getElementById("chatbox");
-const input = document.getElementById("chatInput");
+const chatbox = document.getElementById("chat");
+const input = document.getElementById("command");
 
 function addLine(text, cls="you") {
   const div = document.createElement("div");
-  div.className = cls;
+  div.className = `line ${cls}`;
   div.textContent = text;
   chatbox.appendChild(div);
   chatbox.scrollTop = chatbox.scrollHeight;
+}
+
+let currentBet = 0;
+
+function setBet(amount) {
+  if (gold <= 0) return;
+  currentBet = Math.min(amount, gold);
+  socket.emit("bet", currentBet);
+  addLine(`You set a bet of ${currentBet} gold.`, "system");
+}
+
+function customBet() {
+  if (gold <= 0) return;
+  const amt = parseInt(prompt("Enter bet amount:"));
+  if (!amt || amt <= 0) return;
+  setBet(amt);
 }
 
 function sendInput() {
@@ -175,21 +207,68 @@ function sendInput() {
 ======================= */
 
 const socket = io();
+let myRole = null; // "PlayerA" or "PlayerB"
 
 function queueUp() {
   socket.emit("queue");
   addLine("You queue for a deathroll match.", "system");
 }
 
+socket.on("role", role => {
+  myRole = role;
+  addLine(`You are ${role} (YOU).`, "you");
+});
+
+socket.on("result", data => {
+  const bet = Number(data?.bet || 0);
+  if (!bet) return; // no locked bet, no payout
+
+  if (myRole === data.winner) {
+    gold += bet;
+    saveGold();
+    updateGold();
+    addLine(`You won 🪙 ${bet}.`, "win");
+  } else if (myRole === data.loser) {
+    gold = Math.max(0, gold - bet);
+    saveGold();
+    updateGold();
+    addLine(`You lost 🪙 ${bet}.`, "lose");
+  }
+});
+
 socket.on("chat", msg => {
-  addLine(msg, "you");
+  if (!msg || typeof msg !== "string") return;
+
+  // Case 1: player chat lines "PlayerA: ..." or "PlayerB: ..."
+  if (msg.startsWith("PlayerA:") || msg.startsWith("PlayerB:")) {
+    const role = msg.startsWith("PlayerA:") ? "PlayerA" : "PlayerB";
+    const rest = msg.slice(role.length); // keeps ":" + message
+    const tag = (myRole === role) ? " (YOU)" : "";
+    const pretty = `${role}${tag}${rest}`;
+
+    addLine(pretty, (myRole === role) ? "you" : "opponent");
+    return;
+  }
+
+  // Case 2: roll lines "PlayerA rolled ..." / "PlayerB rolled ..."
+  if (msg.startsWith("PlayerA rolled") || msg.startsWith("PlayerB rolled")) {
+    const role = msg.startsWith("PlayerA rolled") ? "PlayerA" : "PlayerB";
+    const rest = msg.slice(role.length); // keeps " rolled ..."
+    const tag = (myRole === role) ? " (YOU)" : "";
+    const pretty = `${role}${tag}${rest}`;
+
+    addLine(pretty, (myRole === role) ? "you" : "opponent");
+    return;
+  }
+
+  // Anything else treat as system
+  addLine(msg, "system");
 });
 
 socket.on("system", msg => {
   addLine(msg, "system");
 });
 
-/* optional */
 input.addEventListener("keypress", e => {
   if (e.key === "Enter") sendInput();
 });

@@ -1,0 +1,43 @@
+<a href="/" style="display:inline-block; margin-bottom:15px;">
+  ← Return to Main Hub
+</a>
+
+<h2>Home Server Power Bill Calculator</h2>
+
+<p>
+  Enter your server's average wattage and select a regional power provider to
+  estimate energy use and running costs. Rates are representative residential
+  averages (updated Apr 2024) and may vary by plan or tier.
+</p>
+
+<form method="post">
+  <label>
+    Average wattage (W):
+    <input name="wattage" type="number" step="any" min="0" required>
+  </label>
+  <label>
+    Provider:
+    <select name="provider" required>
+      {% for provider in providers %}
+      <option value="{{ provider.id }}">
+        {{ provider.name }} — {{ provider.currency }} {{ "%.3f"|format(provider.rate) }}/kWh
+      </option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Calculate</button>
+</form>
+
+{% if error %}
+<p style="color: red;">{{ error }}</p>
+{% endif %}
+
+{% if result %}
+<h3>Estimated Usage & Costs</h3>
+<ul>
+  <li>Provider: {{ result.provider.name }}</li>
+  <li>Energy use per year: {{ "%.2f"|format(result.kwh_year) }} kWh</li>
+  <li>Yearly running cost: {{ result.provider.currency }} {{ "%.2f"|format(result.yearly_cost) }}</li>
+  <li>Monthly running cost: {{ result.provider.currency }} {{ "%.2f"|format(result.monthly_cost) }}</li>
+</ul>
+{% endif %}

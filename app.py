@@ -10,6 +10,8 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 pvp_queue = []
 pvp_rooms = {}
 
+sid_to_room = {}
+
 # ---------------- Time calculator ----------------
 
 SECONDS = {
@@ -123,6 +125,96 @@ def usable_space_calc(capacity_value, capacity_unit, overhead_percent, reserved_
         "usable_binary_tib": usable_bytes / (2**40),
         "binary_capacity_gib": total_bytes / (2**30),
         "binary_capacity_tib": total_bytes / (2**40),
+    }
+
+# ---------------- Power bill calculator ----------------
+
+POWER_PROVIDERS = [
+    {
+        "id": "bc_hydro",
+        "name": "BC Hydro (British Columbia)",
+        "rate": 0.1097,
+        "currency": "CAD",
+        "updated": "2024-04",
+    },
+    {
+        "id": "hydro_quebec",
+        "name": "Hydro-Québec (Québec)",
+        "rate": 0.0730,
+        "currency": "CAD",
+        "updated": "2024-04",
+    },
+    {
+        "id": "hydro_one",
+        "name": "Hydro One (Ontario)",
+        "rate": 0.103,
+        "currency": "CAD",
+        "updated": "2024-04",
+    },
+    {
+        "id": "pge",
+        "name": "PG&E (Northern California)",
+        "rate": 0.41,
+        "currency": "USD",
+        "updated": "2024-04",
+    },
+    {
+        "id": "sce",
+        "name": "Southern California Edison (California)",
+        "rate": 0.35,
+        "currency": "USD",
+        "updated": "2024-04",
+    },
+    {
+        "id": "sdge",
+        "name": "SDG&E (San Diego, California)",
+        "rate": 0.46,
+        "currency": "USD",
+        "updated": "2024-04",
+    },
+    {
+        "id": "coned",
+        "name": "Con Edison (New York)",
+        "rate": 0.27,
+        "currency": "USD",
+        "updated": "2024-04",
+    },
+    {
+        "id": "duke",
+        "name": "Duke Energy (Carolinas)",
+        "rate": 0.13,
+        "currency": "USD",
+        "updated": "2024-04",
+    },
+    {
+        "id": "fpl",
+        "name": "Florida Power & Light (Florida)",
+        "rate": 0.14,
+        "currency": "USD",
+        "updated": "2024-04",
+    },
+    {
+        "id": "oncor",
+        "name": "Oncor (Texas)",
+        "rate": 0.14,
+        "currency": "USD",
+        "updated": "2024-04",
+    },
+]
+
+POWER_PROVIDER_LOOKUP = {provider["id"]: provider for provider in POWER_PROVIDERS}
+
+
+def power_bill_calc(wattage, provider_id):
+    provider = POWER_PROVIDER_LOOKUP[provider_id]
+    kwh_year = (wattage * 24 * 365) / 1000
+    yearly_cost = kwh_year * provider["rate"]
+    monthly_cost = yearly_cost / 12
+    return {
+        "provider": provider,
+        "kwh_year": kwh_year,
+        "yearly_cost": yearly_cost,
+        "monthly_cost": monthly_cost,
     }
 
 # ---------------- Darkmoon flavor text ----------------
@@ -498,6 +590,28 @@ def usable_space():
 
     return render_template("usable_space.html", result=result, error=error)
 
+@app.route("/power-bill", methods=["GET", "POST"])
+def power_bill():
+    result = None
+    error = None
+    if request.method == "POST":
+        try:
+            wattage = float(request.form["wattage"])
+            provider_id = request.form["provider"]
+            if wattage <= 0:
+                raise ValueError
+            if provider_id not in POWER_PROVIDER_LOOKUP:
+                raise ValueError
+            result = power_bill_calc(wattage, provider_id)
+        except Exception:
+            error = "Enter a valid wattage and select a power provider."
+    return render_template(
+        "power_bill.html",
+        result=result,
+        error=error,
+        providers=POWER_PROVIDERS,
+    )
+
 
 @app.route("/darkmoon", methods=["GET", "POST"])
 def darkmoon():
@@ -521,7 +635,19 @@ def deathroll_pvp():
 @socketio.on("queue")
 def handle_queue():
     sid = request.sid
+
+    # prevent double-queue
+    if sid in pvp_queue:
+        emit("system", "Already queued.")
+        return
+
+    # prevent re-queue while in match
+    if sid in sid_to_room:
+        emit("system", "You are already in a match.")
+        return
+
     pvp_queue.append(sid)
+    emit("system", "Queued. Waiting for opponent...")
 
     if len(pvp_queue) >= 2:
         p1 = pvp_queue.pop(0)
@@ -532,13 +658,21 @@ def handle_queue():
             "players": [p1, p2],
             "bet": {},
             "max": 1000,
-            "turn": p1
+            "turn": p1,
         }
+
+        sid_to_room[p1] = room
+        sid_to_room[p2] = room
 
         join_room(room, sid=p1)
         join_room(room, sid=p2)
 
+        # tell each client who they are
+        socketio.emit("role", "PlayerA", to=p1)
+        socketio.emit("role", "PlayerB", to=p2)
+
         emit("system", "Match found! Agree on a bet.", to=room)
+
 
 @socketio.on("bet")
 def handle_bet(amount):
@@ -560,23 +694,58 @@ def handle_roll(max_roll):
 
     for room, game in pvp_rooms.items():
         if sid != game["turn"]:
+            continue
+
+        if int(max_roll) != int(game["max"]):
+            emit("system", f"Invalid roll. You must /roll {game['max']}.", to=sid)
             return
 
-        if max_roll != game["max"]:
-            emit("system", "Invalid roll range.", to=sid)
-            return
-
-        roll = random.randint(1, max_roll)
-        emit("chat", f"Player rolled {roll} (1–{max_roll})", to=room)
+        roll = random.randint(1, int(max_roll))
+        players = game["players"]
+        label = "PlayerA" if sid == players[0] else "PlayerB"
+        emit("chat", f"{label} rolled {roll} (1–{max_roll})", to=room)
 
         if roll == 1:
-            emit("system", f"Player loses the deathroll.", to=room)
-            del pvp_rooms[room]
+            loser_role = label
+            winner_role = "PlayerB" if label == "PlayerA" else "PlayerA"
+
+            bet_values = list(game.get("bet", {}).values())
+            bet = bet_values[0] if len(bet_values) == 2 and len(set(bet_values)) == 1 else 0
+
+            emit("system", f"{label} loses the deathroll.", to=room)
+            socketio.emit("result", {"winner": winner_role, "loser": loser_role, "bet": bet}, to=room)
+
+            for psid in players:
+                sid_to_room.pop(psid, None)
+            pvp_rooms.pop(room, None)
             return
 
         game["max"] = roll
-        game["turn"] = next(p for p in game["players"] if p != sid)
+        game["turn"] = next(p for p in players if p != sid)
+        return
+
+    # If we didn't find a match where it's your turn:
+    emit("system", "Not your turn (or you're not in a match).", to=sid)
+
+
+@socketio.on("chat")
+def on_chat(msg):
+    sid = request.sid
+    room = sid_to_room.get(sid)
+
+    if not room or room not in pvp_rooms:
+        emit("system", "You are not in a match.")
+        return
+
+    if not isinstance(msg, str) or not msg.strip():
+        return
+
+    players = pvp_rooms[room]["players"]
+    label = "PlayerA" if sid == players[0] else "PlayerB"
+
+    socketio.emit("chat", f"{label}: {msg.strip()}", to=room)
+
 
 
 if __name__ == "__main__":
-    socketio.run(host="0.0.0.0", port=5000)
+    socketio.run(app, host="0.0.0.0", port=5000)
