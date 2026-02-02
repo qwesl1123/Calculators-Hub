@@ -659,6 +659,7 @@ def handle_queue():
             "bet": {},
             "max": 1000,
             "turn": p1,
+            "finished": False,
         }
 
         sid_to_room[p1] = room
@@ -695,6 +696,9 @@ def handle_roll(max_roll):
     for room, game in pvp_rooms.items():
         if sid != game["turn"]:
             continue
+        if game.get("finished"):
+            emit("system", "The match is over. You can keep chatting here.", to=sid)
+            return
 
         if int(max_roll) != int(game["max"]):
             emit("system", f"Invalid roll. You must /roll {game['max']}.", to=sid)
@@ -714,10 +718,7 @@ def handle_roll(max_roll):
 
             emit("system", f"{label} loses the deathroll.", to=room)
             socketio.emit("result", {"winner": winner_role, "loser": loser_role, "bet": bet}, to=room)
-
-            for psid in players:
-                sid_to_room.pop(psid, None)
-            pvp_rooms.pop(room, None)
+            game["finished"] = True
             return
 
         game["max"] = roll
@@ -744,6 +745,29 @@ def on_chat(msg):
     label = "PlayerA" if sid == players[0] else "PlayerB"
 
     socketio.emit("chat", f"{label}: {msg.strip()}", to=room)
+
+
+@socketio.on("disconnect")
+def on_disconnect():
+    sid = request.sid
+    if sid in pvp_queue:
+        pvp_queue.remove(sid)
+
+    room = sid_to_room.pop(sid, None)
+    if not room or room not in pvp_rooms:
+        return
+
+    game = pvp_rooms[room]
+    players = game.get("players", [])
+    label = "PlayerA" if players and sid == players[0] else "PlayerB"
+
+    leave_room(room, sid=sid)
+    emit("system", f"{label} leaves the instance.", to=room)
+
+    if sid in players:
+        players.remove(sid)
+    if not players:
+        pvp_rooms.pop(room, None)
 
 
 
