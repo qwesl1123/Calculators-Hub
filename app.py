@@ -700,6 +700,11 @@ def handle_roll(max_roll):
             emit("system", "The match is over. You can keep chatting here.", to=sid)
             return
 
+        bet_values = list(game.get("bet", {}).values())
+        if len(bet_values) < 2 or len(set(bet_values)) != 1:
+            emit("system", "Both players must set the same bet before rolling.", to=sid)
+            return
+
         if int(max_roll) != int(game["max"]):
             emit("system", f"Invalid roll. You must /roll {game['max']}.", to=sid)
             return
