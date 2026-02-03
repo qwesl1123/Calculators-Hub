@@ -1,113 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<title>Blackjack PvP Arena</title>
-<style>
-  :root {
-    color-scheme: dark;
-  }
+  <meta charset="UTF-8">
+  <title>Blackjack Arena</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
 
-  body {
-    margin: 0;
-    background: radial-gradient(circle at top, #1b1b1b 0%, #050505 65%);
-    color: #eaeaea;
-    font-family: "Lucida Console", "Courier New", monospace;
-    display: flex;
-    justify-content: center;
-    padding: 24px 12px 40px;
-  }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #1b1b1b 0%, #050505 65%);
+      color: #eaeaea;
+      font-family: "Lucida Console", "Courier New", monospace;
+      display: flex;
+      justify-content: center;
+      padding: 24px 12px 40px;
+    }
 
-  .arena {
-    width: min(900px, 96vw);
-    background: #0a0a0a;
-    border: 2px solid #2e2e2e;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
-    padding: 18px;
-  }
+    .arena {
+      width: min(900px, 96vw);
+      background: #0a0a0a;
+      border: 2px solid #2e2e2e;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+      padding: 18px;
+    }
 
-  h1 {
-    text-align: center;
-    color: #ff8c42;
-    text-transform: uppercase;
-    font-size: 22px;
-    margin: 0 0 12px;
-    letter-spacing: 0.16em;
-    text-shadow: 0 0 8px rgba(255, 140, 66, 0.45);
-  }
+    h1 {
+      text-align: center;
+      color: #ff8c42;
+      text-transform: uppercase;
+      font-size: 22px;
+      margin: 0 0 12px;
+      letter-spacing: 0.16em;
+      text-shadow: 0 0 8px rgba(255, 140, 66, 0.45);
+    }
 
-  .status {
-    border: 1px solid #2b2b2b;
-    background: #111;
-    padding: 10px;
-    margin-bottom: 12px;
-    font-size: 14px;
-    line-height: 1.5;
-  }
+    .status {
+      border: 1px solid #2b2b2b;
+      background: #111;
+      padding: 10px;
+      margin-bottom: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
 
-  .status strong {
-    color: #7ad7ff;
-  }
+    .status strong {
+      color: #7ad7ff;
+    }
 
-  .chatbox {
-    background: #050505;
-    border: 1px solid #2a2a2a;
-    height: 260px;
-    overflow-y: auto;
-    padding: 10px;
-    margin-bottom: 10px;
-    font-size: 14px;
-  }
+    .chatbox {
+      background: #050505;
+      border: 1px solid #2a2a2a;
+      height: 260px;
+      overflow-y: auto;
+      padding: 10px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
 
-  .line { margin-bottom: 6px; }
-  .p1 { color: #7ad7ff; }
-  .p2 { color: #ff6b6b; }
-  .system { color: #ffd166; }
-  .win { color: #37ff8b; font-weight: bold; }
-  .lose { color: #ff6b6b; font-weight: bold; }
+    .line {
+      margin-bottom: 6px;
+    }
 
-  .controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
+    .p1 {
+      color: #7ad7ff;
+    }
 
-  button {
-    background: #1c1c1c;
-    color: #e6e6e6;
-    border: 1px solid #444;
-    padding: 6px 12px;
-    cursor: pointer;
-    font-family: inherit;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 12px;
-  }
+    .p2 {
+      color: #ff6b6b;
+    }
 
-  button:hover { background: #2a2a2a; }
+    .system {
+      color: #ffd166;
+    }
 
-  input {
-    width: 100%;
-    padding: 8px;
-    background: #0d0d0d;
-    border: 1px solid #333;
-    color: #f5f5f5;
-    font-family: inherit;
-  }
+    .win {
+      color: #37ff8b;
+      font-weight: bold;
+    }
 
-  .footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 10px;
-    font-size: 13px;
-  }
-</style>
+    .lose {
+      color: #ff6b6b;
+      font-weight: bold;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    button {
+      background: #1c1c1c;
+      color: #e6e6e6;
+      border: 1px solid #444;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-family: inherit;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+    }
+
+    button:hover {
+      background: #2a2a2a;
+    }
+
+    input {
+      width: 100%;
+      padding: 8px;
+      background: #0d0d0d;
+      border: 1px solid #333;
+      color: #f5f5f5;
+      font-family: inherit;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+  </style>
 </head>
+
 <body>
   <div class="arena">
-    <h1>Blackjack PvP Arena</h1>
+    <h1>Blackjack Arena</h1>
 
     <div class="status" id="status"></div>
 
@@ -116,6 +139,7 @@
     <input id="command" placeholder="Type /deal, /hit, /stand, /switch" autocomplete="off">
 
     <div class="controls">
+      <button onclick="queueUp()">Queue</button>
       <button onclick="setBet(5)">Bet 5</button>
       <button onclick="setBet(20)">Bet 20</button>
       <button onclick="setBet(100)">Bet 100</button>
@@ -134,243 +158,159 @@
     </div>
   </div>
 
-<script>
-  const chat = document.getElementById("chat");
-  const input = document.getElementById("command");
-  const status = document.getElementById("status");
-  const goldDisplay = document.getElementById("goldDisplay");
+  <script>
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("command");
+    const status = document.getElementById("status");
+    const goldDisplay = document.getElementById("goldDisplay");
 
-  let p1Diamonds = parseInt(localStorage.getItem("blackjack_p1_diamonds")) || 500;
-  let p2Diamonds = parseInt(localStorage.getItem("blackjack_p2_diamonds")) || 500;
-  let currentBet = 0;
-  let deck = [];
-  let p1Hand = [];
-  let p2Hand = [];
-  let inRound = false;
-  let activePlayer = 1;
-  let p1Done = false;
-  let p2Done = false;
+    // IMPORTANT: shared with PvE blackjack via the SAME key "diamonds"
+    let diamonds = parseInt(localStorage.getItem("diamonds") || "500", 10);
 
-  function addLine(text, cls = "system") {
-    const div = document.createElement("div");
-    div.className = `line ${cls}`;
-    div.textContent = text;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-  }
+    const socket = io();
+    let myRole = null;          // "P1" or "P2"
+    let inRound = false;
+    let activeRole = "P1";
+    let currentBet = 0;
+    let p1Hand = [];
+    let p2Hand = [];
+    let p1v = "--";
+    let p2v = "--";
 
-  function saveGold() {
-    localStorage.setItem("blackjack_p1_diamonds", p1Diamonds);
-    localStorage.setItem("blackjack_p2_diamonds", p2Diamonds);
-  }
-
-  function updateGold() {
-    goldDisplay.textContent = `P1 💎 ${p1Diamonds.toLocaleString()} | P2 💎 ${p2Diamonds.toLocaleString()}`;
-    saveGold();
-  }
-
-  function setBet(amount) {
-    currentBet = Math.min(amount, p1Diamonds, p2Diamonds);
-    addLine(`Table bet set to ${currentBet} Diamonds each.`, "system");
-    updateStatus();
-  }
-
-  function customBet() {
-    const amt = parseInt(prompt("Enter bet amount:"), 10);
-    if (!amt || amt <= 0) return;
-    setBet(amt);
-  }
-
-  function createDeck() {
-    const suits = ["♠", "♥", "♦", "♣"];
-    const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-    const fresh = [];
-    for (const suit of suits) {
-      for (const rank of ranks) {
-        const value = rank === "A" ? 11 : ["J", "Q", "K"].includes(rank) ? 10 : parseInt(rank, 10);
-        fresh.push({ rank, suit, value, label: `${rank}${suit}` });
-      }
+    function addLine(text, cls = "system") {
+      const div = document.createElement("div");
+      div.className = `line ${cls}`;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
     }
-    return fresh;
-  }
 
-  function shuffle(cards) {
-    for (let i = cards.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [cards[i], cards[j]] = [cards[j], cards[i]];
+    function updateDiamonds() {
+      goldDisplay.textContent = `💎 ${diamonds.toLocaleString()} Diamonds`;
+      localStorage.setItem("diamonds", String(diamonds));
     }
-  }
 
-  function drawCard() {
-    if (deck.length === 0) {
-      deck = createDeck();
-      shuffle(deck);
-    }
-    return deck.pop();
-  }
+    function updateStatus() {
+      const a = activeRole === "P1" ? "P1" : "P2";
+      const youTag = (myRole === a) ? " (YOU)" : "";
+      const p1Tag = (myRole === "P1") ? " (YOU)" : "";
+      const p2Tag = (myRole === "P2") ? " (YOU)" : "";
 
-  function handValue(hand) {
-    let total = hand.reduce((sum, card) => sum + card.value, 0);
-    let aces = hand.filter((card) => card.rank === "A").length;
-    while (total > 21 && aces > 0) {
-      total -= 10;
-      aces -= 1;
-    }
-    return total;
-  }
+      const p1Text = (p1Hand && p1Hand.length) ? `${p1Hand.join(" ")} (${p1v})` : "--";
+      const p2Text = (p2Hand && p2Hand.length) ? `${p2Hand.join(" ")} (${p2v})` : "--";
 
-  function handLabels(hand) {
-    return hand.map((card) => card.label).join(" ");
-  }
-
-  function updateStatus() {
-    status.innerHTML = `
-      <div><strong>Active:</strong> Player ${activePlayer}</div>
+      status.innerHTML = `
+      <div><strong>Active:</strong> ${a}${youTag}</div>
       <div><strong>Bet:</strong> ${currentBet || 0} Diamonds each</div>
-      <div><strong>Player 1:</strong> ${handLabels(p1Hand) || "--"} (${p1Hand.length ? handValue(p1Hand) : "--"})</div>
-      <div><strong>Player 2:</strong> ${handLabels(p2Hand) || "--"} (${p2Hand.length ? handValue(p2Hand) : "--"})</div>
+      <div><strong>P1${p1Tag}:</strong> ${p1Text}</div>
+      <div><strong>P2${p2Tag}:</strong> ${p2Text}</div>
     `;
-  }
-
-  function startRound() {
-    if (inRound) {
-      addLine("Round already in progress.", "system");
-      return;
-    }
-    if (currentBet <= 0) {
-      addLine("Set a bet before dealing.", "system");
-      return;
-    }
-    if (p1Diamonds < currentBet || p2Diamonds < currentBet) {
-      addLine("Both players must afford the bet.", "system");
-      return;
     }
 
-    deck = createDeck();
-    shuffle(deck);
-    p1Hand = [drawCard(), drawCard()];
-    p2Hand = [drawCard(), drawCard()];
-    inRound = true;
-    activePlayer = 1;
-    p1Done = false;
-    p2Done = false;
-
-    addLine("Dealerless table unlocked. Player 1 starts.", "system");
-    addLine(`Player 1 draws ${handLabels(p1Hand)}.`, "p1");
-    addLine(`Player 2 draws ${handLabels(p2Hand)}.`, "p2");
-    updateStatus();
-  }
-
-  function hitPlayer() {
-    if (!inRound) {
-      addLine("No active round. Type /deal.", "system");
-      return;
+    function queueUp() {
+      socket.emit("bj_queue");
+      addLine("You queue for Blackjack PvP.", "system");
     }
-    const hand = activePlayer === 1 ? p1Hand : p2Hand;
-    hand.push(drawCard());
-    addLine(`Player ${activePlayer} hits ${hand[hand.length - 1].label}.`, activePlayer === 1 ? "p1" : "p2");
 
-    const total = handValue(hand);
-    if (total > 21) {
-      addLine(`Player ${activePlayer} busts!`, "lose");
-      if (activePlayer === 1) {
-        p1Done = true;
-      } else {
-        p2Done = true;
+    function setBet(amount) {
+      if (!myRole) {
+        addLine("Queue first.", "system");
+        return;
       }
-      switchTurn();
-      if (p1Done && p2Done) finishRound();
+      const bet = Math.max(0, Math.min(parseInt(amount, 10) || 0, diamonds));
+      if (bet <= 0) {
+        addLine("You don't have enough Diamonds for that bet.", "system");
+        return;
+      }
+      currentBet = bet;
+      socket.emit("bj_bet", bet);
+      addLine(`You propose a bet of ${bet} Diamonds.`, "system");
+      updateStatus();
     }
+
+    function customBet() {
+      const amt = parseInt(prompt("Enter bet amount:"), 10);
+      if (!amt || amt <= 0) return;
+      setBet(amt);
+    }
+
+    function startRound() {
+      socket.emit("bj_deal");
+    }
+
+    function hitPlayer() {
+      socket.emit("bj_hit");
+    }
+
+    function standPlayer() {
+      socket.emit("bj_stand");
+    }
+
+    function switchTurn() {
+      // Server controls turn order in PvP; keep button but don't break UI.
+      addLine("Turn order is automatic in PvP.", "system");
+    }
+
+    function handleCommand(cmd) {
+      switch (cmd) {
+        case "/deal": startRound(); break;
+        case "/hit": hitPlayer(); break;
+        case "/stand": standPlayer(); break;
+        case "/switch": switchTurn(); break;
+        default:
+          addLine("Unknown command. Try /deal, /hit, /stand.", "system");
+      }
+    }
+
+    // ---- socket events ----
+    socket.on("bj_role", role => {
+      myRole = role;
+      addLine(`Match joined: ${role} (YOU)`, "system");
+      updateStatus();
+    });
+
+    socket.on("bj_system", msg => addLine(msg, "system"));
+
+    socket.on("bj_state", s => {
+      inRound = !!s.in_round;
+      activeRole = s.active;
+      currentBet = s.bet || currentBet;
+      p1Hand = s.p1 || [];
+      p2Hand = s.p2 || [];
+      p1v = s.p1v ?? "--";
+      p2v = s.p2v ?? "--";
+      updateStatus();
+    });
+
+    socket.on("bj_result", r => {
+      if (r.winner === null) {
+        addLine("Push. No Diamonds change hands.", "system");
+      } else if (myRole === r.winner) {
+        diamonds += (r.bet || 0);
+        addLine(`You win ${r.bet} Diamonds.`, "win");
+      } else {
+        diamonds = Math.max(0, diamonds - (r.bet || 0));
+        addLine(`You lose ${r.bet} Diamonds.`, "lose");
+      }
+      updateDiamonds();
+      updateStatus();
+    });
+
+    // Enter-to-send command
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      const msg = input.value.trim();
+      if (!msg) return;
+      input.value = "";
+      handleCommand(msg);
+    });
+
+    // init
+    updateDiamonds();
     updateStatus();
-  }
+    addLine("Queue up for a real opponent. Both players set the same bet, then Deal.", "system");
+  </script>
 
-  function standPlayer() {
-    if (!inRound) {
-      addLine("No active round. Type /deal.", "system");
-      return;
-    }
-    addLine(`Player ${activePlayer} stands.`, "system");
-    if (activePlayer === 1) {
-      p1Done = true;
-    } else {
-      p2Done = true;
-    }
-    switchTurn();
-    if (p1Done && p2Done) finishRound();
-  }
-
-  function switchTurn() {
-    if (!inRound) return;
-    activePlayer = activePlayer === 1 ? 2 : 1;
-    if ((activePlayer === 1 && p1Done) || (activePlayer === 2 && p2Done)) {
-      activePlayer = activePlayer === 1 ? 2 : 1;
-    }
-    updateStatus();
-  }
-
-  function finishRound() {
-    const p1Total = handValue(p1Hand);
-    const p2Total = handValue(p2Hand);
-
-    let result;
-    if (p1Total > 21 && p2Total > 21) {
-      result = "Double bust. Push.";
-      addLine(result, "system");
-    } else if (p1Total > 21) {
-      p1Diamonds -= currentBet;
-      p2Diamonds += currentBet;
-      addLine(`Player 2 wins ${currentBet} Diamonds.`, "win");
-    } else if (p2Total > 21) {
-      p2Diamonds -= currentBet;
-      p1Diamonds += currentBet;
-      addLine(`Player 1 wins ${currentBet} Diamonds.`, "win");
-    } else if (p1Total > p2Total) {
-      p1Diamonds += currentBet;
-      p2Diamonds -= currentBet;
-      addLine(`Player 1 wins ${currentBet} Diamonds.`, "win");
-    } else if (p2Total > p1Total) {
-      p2Diamonds += currentBet;
-      p1Diamonds -= currentBet;
-      addLine(`Player 2 wins ${currentBet} Diamonds.`, "win");
-    } else {
-      addLine("Push. No Diamonds change hands.", "system");
-    }
-
-    inRound = false;
-    updateGold();
-    updateStatus();
-  }
-
-  function handleCommand(cmd) {
-    switch (cmd) {
-      case "/deal":
-        startRound();
-        break;
-      case "/hit":
-        hitPlayer();
-        break;
-      case "/stand":
-        standPlayer();
-        break;
-      case "/switch":
-        switchTurn();
-        break;
-      default:
-        addLine("Unknown command. Try /deal, /hit, /stand, /switch", "system");
-    }
-  }
-
-  input.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter") return;
-    const msg = input.value.trim();
-    if (!msg) return;
-    input.value = "";
-    handleCommand(msg);
-  });
-
-  updateGold();
-  updateStatus();
-  addLine("Hot-seat blackjack. Player 1 opens.", "system");
-</script>
 </body>
+
 </html>

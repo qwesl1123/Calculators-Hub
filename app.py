@@ -7,10 +7,16 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = "deathroll-secret"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# ---------------- Deathroll PvP ----------------
 pvp_queue = []
 pvp_rooms = {}
 
 sid_to_room = {}
+
+# ---------------- Blackjack PvP ----------------
+bj_queue = []
+bj_rooms = {}
+bj_sid_to_room = {}
 
 # ---------------- Time calculator ----------------
 
@@ -781,6 +787,262 @@ def on_disconnect():
         players.remove(sid)
     if not players:
         pvp_rooms.pop(room, None)
+
+
+@socketio.on("bj_queue")
+def bj_queue_up():
+    sid = request.sid
+
+    if sid in bj_queue:
+        emit("bj_system", "Already queued.")
+        return
+
+    existing = bj_sid_to_room.get(sid)
+    if existing and existing in bj_rooms and not bj_rooms[existing].get("finished"):
+        emit("bj_system", "You are already in an active Blackjack match.")
+        return
+
+    bj_queue.append(sid)
+    emit("bj_system", "Queued for Blackjack PvP. Waiting for opponent...")
+
+    if len(bj_queue) >= 2:
+        p1 = bj_queue.pop(0)
+        p2 = bj_queue.pop(0)
+
+        room = f"bj-{p1[:5]}-{p2[:5]}"
+        bj_rooms[room] = {
+            "players": [p1, p2],
+            "bet": {},
+            "deck": [],
+            "hands": {p1: [], p2: []},
+            "done": {p1: False, p2: False},
+            "active": p1,
+            "in_round": False,
+            "finished": False,
+        }
+
+        bj_sid_to_room[p1] = room
+        bj_sid_to_room[p2] = room
+
+        join_room(room, sid=p1)
+        join_room(room, sid=p2)
+
+        socketio.emit("bj_role", "P1", to=p1)
+        socketio.emit("bj_role", "P2", to=p2)
+        emit("bj_system", "Match found! Both players set the same bet, then Deal.", to=room)
+
+
+@socketio.on("bj_bet")
+def bj_set_bet(amount):
+    sid = request.sid
+    room = bj_sid_to_room.get(sid)
+    if not room or room not in bj_rooms:
+        emit("bj_system", "You are not in a Blackjack match.")
+        return
+
+    game = bj_rooms[room]
+    if game.get("finished"):
+        emit("bj_system", "Match is over. Queue again to play.", to=sid)
+        return
+
+    try:
+        amount = int(amount)
+    except Exception:
+        emit("bj_system", "Invalid bet amount.", to=sid)
+        return
+
+    if amount <= 0:
+        emit("bj_system", "Bet must be greater than 0.", to=sid)
+        return
+
+    game["bet"][sid] = amount
+    emit("bj_system", f"Bet set: {amount} Diamonds.", to=room)
+
+    vals = list(game["bet"].values())
+    if len(vals) == 2 and len(set(vals)) == 1:
+        emit("bj_system", "Bets locked. Click Deal.", to=room)
+
+
+def _bj_create_deck():
+    suits = ["♠", "♥", "♦", "♣"]
+    ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+    deck = []
+    for s in suits:
+        for r in ranks:
+            v = 11 if r == "A" else 10 if r in ("J", "Q", "K") else int(r)
+            deck.append({"r": r, "s": s, "v": v, "label": f"{r}{s}"})
+    random.shuffle(deck)
+    return deck
+
+
+def _bj_hand_value(hand):
+    total = sum(c["v"] for c in hand)
+    aces = sum(1 for c in hand if c["r"] == "A")
+    while total > 21 and aces > 0:
+        total -= 10
+        aces -= 1
+    return total
+
+
+@socketio.on("bj_deal")
+def bj_deal():
+    sid = request.sid
+    room = bj_sid_to_room.get(sid)
+    if not room or room not in bj_rooms:
+        emit("bj_system", "You are not in a Blackjack match.")
+        return
+
+    game = bj_rooms[room]
+    if game.get("finished"):
+        emit("bj_system", "Match is over. Queue again to play.", to=sid)
+        return
+
+    # Require locked bets
+    vals = list(game.get("bet", {}).values())
+    if len(vals) < 2 or len(set(vals)) != 1:
+        emit("bj_system", "Both players must set the same bet before dealing.", to=sid)
+        return
+
+    if game["in_round"]:
+        emit("bj_system", "Round already in progress.", to=sid)
+        return
+
+    p1, p2 = game["players"]
+    game["deck"] = _bj_create_deck()
+    game["hands"] = {p1: [game["deck"].pop(), game["deck"].pop()],
+                     p2: [game["deck"].pop(), game["deck"].pop()]}
+    game["done"] = {p1: False, p2: False}
+    game["active"] = p1
+    game["in_round"] = True
+
+    socketio.emit("bj_state", {
+        "active": "P1",
+        "p1": [c["label"] for c in game["hands"][p1]],
+        "p2": [c["label"] for c in game["hands"][p2]],
+        "p1v": _bj_hand_value(game["hands"][p1]),
+        "p2v": _bj_hand_value(game["hands"][p2]),
+        "bet": vals[0],
+        "in_round": True,
+    }, to=room)
+
+    emit("bj_system", "Cards dealt. P1 acts first.", to=room)
+
+
+@socketio.on("bj_hit")
+def bj_hit():
+    sid = request.sid
+    room = bj_sid_to_room.get(sid)
+    if not room or room not in bj_rooms:
+        emit("bj_system", "You are not in a Blackjack match.")
+        return
+
+    game = bj_rooms[room]
+    if not game["in_round"]:
+        emit("bj_system", "No active round. Click Deal.", to=sid)
+        return
+
+    if sid != game["active"]:
+        emit("bj_system", "Not your turn.", to=sid)
+        return
+
+    if not game["deck"]:
+        game["deck"] = _bj_create_deck()
+
+    game["hands"][sid].append(game["deck"].pop())
+    total = _bj_hand_value(game["hands"][sid])
+
+    # Bust -> mark done and switch
+    if total > 21:
+        game["done"][sid] = True
+
+    # Switch to the other player if possible
+    p1, p2 = game["players"]
+    other = p2 if sid == p1 else p1
+    if not game["done"].get(other, False):
+        game["active"] = other
+    else:
+        game["active"] = sid  # other is done, keep here
+
+    # If both done -> finish
+    if game["done"][p1] and game["done"][p2]:
+        bj_finish(room)
+        return
+
+    socketio.emit("bj_state", {
+        "active": "P1" if game["active"] == p1 else "P2",
+        "p1": [c["label"] for c in game["hands"][p1]],
+        "p2": [c["label"] for c in game["hands"][p2]],
+        "p1v": _bj_hand_value(game["hands"][p1]),
+        "p2v": _bj_hand_value(game["hands"][p2]),
+        "bet": list(game["bet"].values())[0],
+        "in_round": True,
+    }, to=room)
+
+
+@socketio.on("bj_stand")
+def bj_stand():
+    sid = request.sid
+    room = bj_sid_to_room.get(sid)
+    if not room or room not in bj_rooms:
+        emit("bj_system", "You are not in a Blackjack match.")
+        return
+
+    game = bj_rooms[room]
+    if not game["in_round"]:
+        emit("bj_system", "No active round. Click Deal.", to=sid)
+        return
+
+    if sid != game["active"]:
+        emit("bj_system", "Not your turn.", to=sid)
+        return
+
+    game["done"][sid] = True
+
+    p1, p2 = game["players"]
+    other = p2 if sid == p1 else p1
+    if not game["done"].get(other, False):
+        game["active"] = other
+
+    if game["done"][p1] and game["done"][p2]:
+        bj_finish(room)
+        return
+
+    socketio.emit("bj_state", {
+        "active": "P1" if game["active"] == p1 else "P2",
+        "p1": [c["label"] for c in game["hands"][p1]],
+        "p2": [c["label"] for c in game["hands"][p2]],
+        "p1v": _bj_hand_value(game["hands"][p1]),
+        "p2v": _bj_hand_value(game["hands"][p2]),
+        "bet": list(game["bet"].values())[0],
+        "in_round": True,
+    }, to=room)
+
+
+def bj_finish(room):
+    game = bj_rooms.get(room)
+    if not game:
+        return
+
+    p1, p2 = game["players"]
+    p1v = _bj_hand_value(game["hands"][p1])
+    p2v = _bj_hand_value(game["hands"][p2])
+    bet = list(game["bet"].values())[0]
+
+    def score(v):  # bust -> 0
+        return 0 if v > 21 else v
+
+    s1, s2 = score(p1v), score(p2v)
+
+    winner = None
+    if s1 > s2:
+        winner = "P1"
+    elif s2 > s1:
+        winner = "P2"
+
+    socketio.emit("bj_result", {"winner": winner, "bet": bet, "p1v": p1v, "p2v": p2v}, to=room)
+    game["in_round"] = False
+    game["finished"] = True
+    emit("bj_system", "Round finished. Queue again for a new opponent.", to=room)
 
 
 
