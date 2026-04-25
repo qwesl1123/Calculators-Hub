@@ -1,5 +1,6 @@
 from datetime import datetime
 from calendar import monthrange
+import random
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
@@ -7,6 +8,11 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = "deathroll-secret"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+from games.duel import init_duel
+init_duel(app, socketio)
+
+from services.imgconvert import bp as imgconvert_bp
+app.register_blueprint(imgconvert_bp)
 # ---------------- Deathroll PvP ----------------
 pvp_queue = []
 pvp_rooms = {}
@@ -769,24 +775,45 @@ def on_chat(msg):
 @socketio.on("disconnect")
 def on_disconnect():
     sid = request.sid
+    
+    # Clean up deathroll queue and rooms
     if sid in pvp_queue:
         pvp_queue.remove(sid)
 
     room = sid_to_room.pop(sid, None)
-    if not room or room not in pvp_rooms:
-        return
+    if room and room in pvp_rooms:
+        game = pvp_rooms[room]
+        players = game.get("players", [])
+        label = "PlayerA" if players and sid == players[0] else "PlayerB"
 
-    game = pvp_rooms[room]
-    players = game.get("players", [])
-    label = "PlayerA" if players and sid == players[0] else "PlayerB"
+        leave_room(room, sid=sid)
+        emit("system", f"{label} leaves the instance.", to=room)
 
-    leave_room(room, sid=sid)
-    emit("system", f"{label} leaves the instance.", to=room)
-
-    if sid in players:
-        players.remove(sid)
-    if not players:
-        pvp_rooms.pop(room, None)
+        if sid in players:
+            players.remove(sid)
+        if not players:
+            pvp_rooms.pop(room, None)
+    
+    # Clean up blackjack queue and rooms
+    if sid in bj_queue:
+        bj_queue.remove(sid)
+    
+    bj_room = bj_sid_to_room.pop(sid, None)
+    if bj_room and bj_room in bj_rooms:
+        game = bj_rooms[bj_room]
+        players = game.get("players", [])
+        
+        p1, p2 = players if len(players) == 2 else (None, None)
+        label = "P1" if p1 and sid == p1 else "P2"
+        
+        leave_room(bj_room, sid=sid)
+        emit("bj_system", f"{label} disconnected.", to=bj_room)
+        
+        # If the other player is still there, clean up their mapping too
+        if sid in players:
+            players.remove(sid)
+        if not players:
+            bj_rooms.pop(bj_room, None)
 
 
 @socketio.on("bj_queue")
@@ -798,9 +825,18 @@ def bj_queue_up():
         return
 
     existing = bj_sid_to_room.get(sid)
-    if existing and existing in bj_rooms and not bj_rooms[existing].get("finished"):
-        emit("bj_system", "You are already in an active Blackjack match.")
-        return
+    if existing and existing in bj_rooms:
+        game = bj_rooms[existing]
+        if not game.get("finished"):
+            emit("bj_system", "You are already in an active Blackjack match.")
+            return
+        else:
+            # Match is finished, clean up the old room mapping
+            bj_sid_to_room.pop(sid, None)
+            # Clean up the room if both players have left
+            players = game.get("players", [])
+            if all(p not in bj_sid_to_room for p in players):
+                bj_rooms.pop(existing, None)
 
     bj_queue.append(sid)
     emit("bj_system", "Queued for Blackjack PvP. Waiting for opponent...")
@@ -861,6 +897,22 @@ def bj_set_bet(amount):
     vals = list(game["bet"].values())
     if len(vals) == 2 and len(set(vals)) == 1:
         emit("bj_system", "Bets locked. Click Deal.", to=room)
+
+
+@socketio.on("bj_chat")
+def bj_chat(msg):
+    sid = request.sid
+    room = bj_sid_to_room.get(sid)
+    if not room or room not in bj_rooms:
+        emit("bj_system", "You are not in a Blackjack match.")
+        return
+    
+    game = bj_rooms[room]
+    p1, p2 = game["players"]
+    role = "P1" if sid == p1 else "P2"
+    
+    # Broadcast the chat message to both players
+    socketio.emit("bj_chat", {"role": role, "msg": msg}, to=room)
 
 
 def _bj_create_deck():
@@ -1034,11 +1086,36 @@ def bj_finish(room):
     s1, s2 = score(p1v), score(p2v)
 
     winner = None
-    if s1 > s2:
+    reason = ""
+    
+    # Determine winner and reason
+    if p1v > 21 and p2v > 21:
+        # Both bust
+        reason = "Both players bust!"
+        winner = None
+    elif p1v > 21:
+        # P1 busts, P2 wins
+        reason = f"P1 busts with {p1v}. P2 wins!"
+        winner = "P2"
+    elif p2v > 21:
+        # P2 busts, P1 wins
+        reason = f"P2 busts with {p2v}. P1 wins!"
+        winner = "P1"
+    elif s1 > s2:
+        # P1 has higher score
+        reason = f"P1 ({p1v}) beats P2 ({p2v})."
         winner = "P1"
     elif s2 > s1:
+        # P2 has higher score
+        reason = f"P2 ({p2v}) beats P1 ({p1v})."
         winner = "P2"
+    else:
+        # Tie
+        reason = f"Push at {p1v}."
+        winner = None
 
+    # Send the result with reason
+    emit("bj_system", reason, to=room)
     socketio.emit("bj_result", {"winner": winner, "bet": bet, "p1v": p1v, "p2v": p2v}, to=room)
     game["in_round"] = False
     game["finished"] = True
